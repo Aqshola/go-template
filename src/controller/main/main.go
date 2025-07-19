@@ -2,12 +2,14 @@ package controller_main
 
 import (
 	common_parsing "go-template/src/common/parsing"
+
 	config_db "go-template/src/config/db"
 	repository_main "go-template/src/repository/main/testTable"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
+	"github.com/sirupsen/logrus"
 )
 
 type IMainController interface {
@@ -16,7 +18,9 @@ type IMainController interface {
 }
 
 type MainController struct {
-	repoMain repository_main.ITestTableRepository
+	repoMain  repository_main.ITestTableRepository
+	logger    *logrus.Logger
+	validator *validator.Validate
 }
 
 func (c *MainController) GetMain(ctx *gin.Context) {
@@ -31,14 +35,21 @@ func (c *MainController) GetMain(ctx *gin.Context) {
 }
 
 func (c *MainController) GetDetailMain(ctx *gin.Context) {
-	idMain := ctx.Query("id")
-	parsedIdMain, err := strconv.Atoi(idMain)
+	var requestParam = GetDetailRequestParam{}
+	err := ctx.ShouldBindQuery(&requestParam)
 	if err != nil {
-		common_parsing.JSONResponse(ctx, http.StatusBadRequest, "Invalid project ID", nil)
+		c.logger.Error("GetDetailMain " + err.Error())
+		common_parsing.JSONResponse(ctx, http.StatusBadRequest, "Invalid Query Parameters ", nil)
 		return
 	}
 
-	dataDetail, err := c.repoMain.GetDetailTestTable(int(parsedIdMain))
+	err = c.validator.Struct(requestParam)
+	if err != nil {
+		common_parsing.JSONResponse(ctx, http.StatusBadRequest, "Invalid Query Parameters "+err.Error(), nil)
+		return
+	}
+
+	dataDetail, err := c.repoMain.GetDetailTestTable(requestParam.Id)
 	if err != nil {
 		common_parsing.JSONResponse(ctx, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -47,9 +58,12 @@ func (c *MainController) GetDetailMain(ctx *gin.Context) {
 	common_parsing.JSONResponse(ctx, http.StatusBadRequest, "SUCCESS", responseData)
 }
 
-func NewMainController(db config_db.Connection) IMainController {
+func NewMainController(db config_db.Connection, logger *logrus.Logger, validator *validator.Validate) IMainController {
 	repoMain := repository_main.NewMainRepository(db.MySQL)
+
 	return &MainController{
-		repoMain: repoMain,
+		repoMain:  repoMain,
+		logger:    logger,
+		validator: validator,
 	}
 }

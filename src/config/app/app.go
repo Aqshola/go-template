@@ -14,15 +14,19 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
+	"github.com/sirupsen/logrus"
 )
 
 func NewServer(
 	server *gin.Engine,
 	conf config_general.AllConfig,
 	db config_db.Connection,
+	logger *logrus.Logger,
+	validator *validator.Validate,
 ) *http.Server {
 	// init route
-	router.InitRoute(server, conf, db)
+	router.InitRoute(server, conf, db, logger, validator)
 	port := conf.HTTPConfig.HttpPort
 	fmt.Printf("RUNNING IN PORT %s\n", port)
 	return &http.Server{
